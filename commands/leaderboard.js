@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { db } = require('../database');
+const { getGuildSettings, initializeGuildSettings } = require('../config');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -12,6 +13,18 @@ module.exports = {
     const guildId = interaction.guildId;
 
     try {
+      // Initialize and check guild settings
+      await initializeGuildSettings(guildId);
+      const settings = await getGuildSettings(guildId);
+
+      if (!settings?.leaderboard_enabled) {
+        await interaction.editReply({
+          content: '📭 The leaderboard is currently disabled in this server.',
+          ephemeral: true
+        });
+        return;
+      }
+
       // Get top 10 users by total voice time
       const leaderboard = await new Promise((resolve, reject) => {
         db.all(
