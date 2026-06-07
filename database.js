@@ -60,15 +60,34 @@ function completeVoiceSession(userId, guildId) {
   return new Promise((resolve, reject) => {
     const leaveTime = Math.floor(Date.now() / 1000);
     
-    db.run(
-      `UPDATE voice_sessions 
-       SET leave_time = ?, duration = (? - join_time)
+    // First, get the most recent incomplete session
+    db.get(
+      `SELECT id FROM voice_sessions 
        WHERE user_id = ? AND guild_id = ? AND leave_time IS NULL
        ORDER BY join_time DESC LIMIT 1`,
-      [leaveTime, leaveTime, userId, guildId],
-      function(err) {
-        if (err) reject(err);
-        else resolve(this.changes);
+      [userId, guildId],
+      (err, row) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        
+        if (!row) {
+          resolve(0); // No session to complete
+          return;
+        }
+        
+        // Now update that specific session
+        db.run(
+          `UPDATE voice_sessions 
+           SET leave_time = ?, duration = (? - join_time)
+           WHERE id = ?`,
+          [leaveTime, leaveTime, row.id],
+          function(err) {
+            if (err) reject(err);
+            else resolve(this.changes);
+          }
+        );
       }
     );
   });
